@@ -1,5 +1,10 @@
 (function($){ // self-executing wrapper
 
+  // overrides persistence storage temporary to enable Model.destroy()
+  Backbone.sync = function(method, model, success, error){
+   success();
+  }
+
   // create a model, javascript object, key-value pairs
   var Item = Backbone.Model.extend({
     defaults: {
@@ -11,6 +16,45 @@
   // create a collection of items, an array of model objects
   var List = Backbone.Collection.extend({
     model: Item
+  });
+
+  // ItemView class, responsible for rendering each individual Item.
+  var ItemView = Backbone.View.extend({
+    tagName: 'li', // name of root tag in this.el
+
+    events: {
+      'click span.swap': 'swap', // add two clickable actions for each item
+      'click span.delete': 'remove'
+    },
+
+    initialize: function(){
+      _.bindAll(this, 'render', 'unrender', 'swap', 'remove'); // every function that uses 'this' as the current object should be in inheritedData()
+
+      this.model.bind('change', this.render); // binds render and unrender here
+      this.model.bind('remove', this.unrender);
+    },
+
+    render: function(){ // add two actions, swap and delete
+      // $(this.el).html('<span>'+this.model.get('part1')+' '+this.model.get('part2')+'</span>');
+      $(this.el).html('<span style="color:black;">'+this.model.get('part1')+' '+this.model.get('part2')+'</span> &nbsp; &nbsp; <span class="swap" style="font-family:sans-serif; color:blue; cursor:pointer;">[swap]</span> <span class="delete" style="cursor:pointer; color:red; font-family:sans-serif;">[delete]</span>');
+      return this;
+    },
+
+    unrender: function(){ // removes model from the DOM
+      $(this.el).remove();
+    },
+
+    swap: function(){ // interchange and item's attributes, the set method will trigger the 'change' event handler
+      var swapped = {
+        part1: this.model.get('part2'),
+        part2: this.model.get('part1')
+      };
+      this.model.set(swapped);
+    },
+
+    remove: function(){
+      this.model.destroy();
+    }
   });
 
   var ListView = Backbone.View.extend({
@@ -58,7 +102,12 @@
 
     // appendItem is triggered by collection event add and handles the visual update
     appendItem: function(item){
-      $('ul', this.el).append("<li>"+item.get('part1')+ " "+item.get('part2')+"</li>");
+      // refactor view to now be updated by the render method from the ItemView class
+      var itemView = new ItemView({
+        model: item
+      });
+      $('ul', this.el).append(itemView.render().el);
+      // $('ul', this.el).append("<li>"+item.get('part1')+ " "+item.get('part2')+"</li>");
     }
   });
 
